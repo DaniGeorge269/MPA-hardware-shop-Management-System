@@ -2,25 +2,137 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827;
+
+  --muted: #6b7280;
+  --border: #f3e8ff; /* purple-100 */
+  --input-background: #ffffff;
+  --input-foreground: #111827;
+
+  /* Brand Accents */
+  --brand-primary: #9333ea; /* purple-600 */
+  --brand-primary-hover: #7e22ce; /* purple-700 */
+  --brand-subtle: #faf5ff; /* purple-50 */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Base */
+html {
+  background: #ffffff;
+  color-scheme: light;
 }
 
 body {
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Form Elements */
+input,
+textarea,
+select {
+  background-color: #ffffff;
+  color: #111827;
+  border-color: #e9d5ff; /* purple-200 */
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+select option {
+  background-color: #ffffff;
+  color: #111827;
+}
+
+/* Remove browser autofill dark/light conflicts */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #111827;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Tables */
+table {
+  color: #111827;
+}
+
+th {
+  color: #3b0764; /* purple-950 */
+}
+
+td {
+  color: #4b5563;
+}
+
+/* Links */
+a {
+  color: inherit;
+}
+
+/* Buttons */
+button {
+  font-family: inherit;
+}
+
+/* Focus */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/* Disabled fields */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background-color: #faf5ff; /* purple-50 */
+  color: #9ca3af;
+  border-color: #f3e8ff; /* purple-100 */
+  cursor: not-allowed;
+}
+
+/* Text Selection (Switched from green to soft purple) */
+::selection {
+  background: #e9d5ff; /* purple-200 */
+  color: #581c87; /* purple-900 */
+}
+
+/* Scrollbar (Subtle purple track and thumb) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #faf5ff; /* purple-50 */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8b4fe; /* purple-300 */
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c084fc; /* purple-400 */
 }
