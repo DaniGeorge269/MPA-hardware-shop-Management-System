@@ -67,22 +67,31 @@ export async function proxy(request: NextRequest) {
       error,
     } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
-    if (!error) {
-      const requiresMFA =
-        assurance.nextLevel === "aal2" &&
-        assurance.currentLevel !== "aal2";
+    // Fail closed: if the level can't be read, don't let the user
+    // through. /login doesn't redirect back here, so this can't loop.
+    if (error || !assurance) {
+      const loginUrl = request.nextUrl.clone();
 
-      if (requiresMFA) {
-        const mfaUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.search = "";
 
-        mfaUrl.pathname = "/mfa";
-        mfaUrl.searchParams.set(
-          "redirect",
-          pathname
-        );
+      return NextResponse.redirect(loginUrl);
+    }
 
-        return NextResponse.redirect(mfaUrl);
-      }
+    const requiresMFA =
+      assurance.nextLevel === "aal2" &&
+      assurance.currentLevel !== "aal2";
+
+    if (requiresMFA) {
+      const mfaUrl = request.nextUrl.clone();
+
+      mfaUrl.pathname = "/mfa";
+      mfaUrl.searchParams.set(
+        "redirect",
+        pathname
+      );
+
+      return NextResponse.redirect(mfaUrl);
     }
   }
 

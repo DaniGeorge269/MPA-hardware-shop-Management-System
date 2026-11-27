@@ -19,6 +19,8 @@ export default function MFASettings() {
   const [factor, setFactor] =
     useState<MFAFactor | null>(null);
 
+  const [pendingFactorId, setPendingFactorId] =
+    useState("");
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
   const [code, setCode] = useState("");
@@ -133,20 +135,24 @@ export default function MFASettings() {
       return;
     }
 
-    // Existing pending enrollment
-    const pendingFactor = data.all.find(
+    // Remove abandoned setups (closed tab, refresh, cancel) so the
+    // user is never stuck and the friendly name is free again.
+    const staleFactors = data.all.filter(
       (item) =>
         item.factor_type === "totp" &&
-        item.status === "unverified" &&
-        item.friendly_name === MFA_FRIENDLY_NAME
+        item.status === "unverified"
     );
 
-    if (pendingFactor) {
-      setError(
-        "A pending MFA setup already exists. Please cancel the old setup in Supabase Authentication and start again."
-      );
+    for (const stale of staleFactors) {
+      const { error: cleanupError } =
+        await supabase.auth.mfa.unenroll({
+          factorId: stale.id,
+        });
 
-      return;
+      if (cleanupError) {
+        setError(cleanupError.message);
+        return;
+      }
     }
 
     setEnrolling(true);
@@ -165,6 +171,7 @@ export default function MFASettings() {
       return;
     }
 
+    setPendingFactorId(enrollment.id);
     setQrCode(enrollment.totp.qr_code);
     setSecret(enrollment.totp.secret);
   }
@@ -177,46 +184,20 @@ export default function MFASettings() {
       return;
     }
 
+    if (!pendingFactorId) {
+      setError("No pending MFA setup found. Start again.");
+      return;
+    }
+
     setError("");
     setSuccess("");
     setVerifying(true);
 
-    const { data, error } =
-      await supabase.auth.mfa.listFactors();
-
-    if (error) {
-      setError(error.message);
-      setVerifying(false);
-      return;
-    }
-
-    const unverifiedFactor = data.all.find(
-      (item) =>
-        item.factor_type === "totp" &&
-        item.status === "unverified"
-    );
-
-    if (!unverifiedFactor) {
-      setError("No pending MFA setup found.");
-      setVerifying(false);
-      return;
-    }
-
-    const challenge =
-      await supabase.auth.mfa.challenge({
-        factorId: unverifiedFactor.id,
-      });
-
-    if (challenge.error) {
-      setError(challenge.error.message);
-      setVerifying(false);
-      return;
-    }
-
+    // Verify against the exact factor whose QR code was shown,
+    // not "any unverified factor".
     const verification =
-      await supabase.auth.mfa.verify({
-        factorId: unverifiedFactor.id,
-        challengeId: challenge.data.id,
+      await supabase.auth.mfa.challengeAndVerify({
+        factorId: pendingFactorId,
         code,
       });
 
@@ -230,6 +211,7 @@ export default function MFASettings() {
       "Two-factor authentication has been enabled successfully."
     );
 
+    setPendingFactorId("");
     setQrCode("");
     setSecret("");
     setCode("");
@@ -270,7 +252,16 @@ export default function MFASettings() {
     );
   }
 
-  function cancelEnrollment() {
+  async function cancelEnrollment() {
+    // Delete the half-created factor on the server too; otherwise it
+    // lingers and blocks the next attempt.
+    if (pendingFactorId) {
+      await supabase.auth.mfa.unenroll({
+        factorId: pendingFactorId,
+      });
+    }
+
+    setPendingFactorId("");
     setEnrolling(false);
     setQrCode("");
     setSecret("");
@@ -390,9 +381,15 @@ export default function MFASettings() {
                   {/* Supabase returns the QR code as SVG markup. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-                      qrCode
-                    )}`}
+                    src={
+                      // supabase-js already returns a data: URL;
+                      // only wrap raw SVG markup.
+                      qrCode.startsWith("data:")
+                        ? qrCode
+                        : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+                            qrCode
+                          )}`
+                    }
                     alt="MFA QR Code"
                     width={208}
                     height={208}
@@ -433,7 +430,6 @@ export default function MFASettings() {
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  maxLength={6}
                   autoFocus
                   value={code}
                   onChange={(event) =>

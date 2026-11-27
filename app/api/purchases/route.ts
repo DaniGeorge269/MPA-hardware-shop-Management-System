@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { mfaPending } from "@/lib/auth/require-aal";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 type PurchaseItem = {
@@ -23,6 +24,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }
+      );
+    }
+
+    if (await mfaPending(supabase)) {
+      return NextResponse.json(
+        { error: "Two-factor authentication required." },
+        { status: 403 }
       );
     }
 

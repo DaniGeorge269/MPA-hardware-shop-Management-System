@@ -11,11 +11,14 @@ export default function MFAChallenge() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Only allow same-site paths (blocks "https://evil" and "//evil").
+  const requested = searchParams.get("redirect") || "";
   const redirectTo =
-    searchParams.get("redirect") || "/dashboard";
+    requested.startsWith("/") && !requested.startsWith("//")
+      ? requested
+      : "/dashboard";
 
   const [factorId, setFactorId] = useState("");
-  const [challengeId, setChallengeId] = useState("");
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
@@ -55,21 +58,9 @@ export default function MFAChallenge() {
         return;
       }
 
-      const challenge =
-        await supabase.auth.mfa.challenge({
-          factorId: factor.id,
-        });
-
-      if (cancelled) return;
-
-      if (challenge.error) {
-        setError(challenge.error.message);
-        setLoading(false);
-        return;
-      }
-
+      // The challenge is created at submit time (see verifyCode), so it
+      // can't expire while the user is reading their authenticator app.
       setFactorId(factor.id);
-      setChallengeId(challenge.data.id);
       setLoading(false);
     }
 
@@ -94,14 +85,14 @@ export default function MFAChallenge() {
     setVerifying(true);
 
     const { error } =
-      await supabase.auth.mfa.verify({
+      await supabase.auth.mfa.challengeAndVerify({
         factorId,
-        challengeId,
         code,
       });
 
     if (error) {
       setError(error.message);
+      setCode("");
       setVerifying(false);
       return;
     }
@@ -158,7 +149,6 @@ export default function MFAChallenge() {
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                maxLength={6}
                 autoFocus
                 value={code}
                 onChange={(event) =>

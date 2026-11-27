@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { mfaPending } from "@/lib/auth/require-aal";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
 type Role = "ADMIN" | "STAFF" | "FINANCE";
@@ -25,6 +26,13 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }
+      );
+    }
+
+    if (await mfaPending(supabase)) {
+      return NextResponse.json(
+        { error: "Two-factor authentication required." },
+        { status: 403 }
       );
     }
 
