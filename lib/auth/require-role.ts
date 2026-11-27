@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { mfaPending } from "@/lib/auth/require-aal";
 
 type Role = "ADMIN" | "STAFF" | "FINANCE";
 
@@ -18,17 +19,7 @@ export async function requireRole(
     redirect("/login");
   }
 
-  const {
-    data: assurance,
-    error: assuranceError,
-  } =
-    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-
-  if (
-    !assuranceError &&
-    assurance.nextLevel === "aal2" &&
-    assurance.currentLevel !== "aal2"
-  ) {
+  if (await mfaPending(supabase)) {
     redirect(
       `/mfa?redirect=${encodeURIComponent(
         redirectPath
